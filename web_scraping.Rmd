@@ -1,0 +1,450 @@
+---
+title: "Web scraping presentation"
+author: "Noah Sylwester, Elizabeth Glenn"
+date: "5/27/2019"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(rvest)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(ggplot2)
+# Knit options
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+***
+
+## What is "Web scraping"?
+
+The term "**web scraping**" refers to the collection via code of data stored on the web in unstructured formats (HTML tags). This technique can, for example, be used to efficiently read in data stored as text on web pages without doing the laborious work of copy-pasting everthing manually.
+
+***
+
+## Before you scrape... what is an API?
+
+### Application Programming Interface
+
+Many websites have what are called "Application programming interfaces", or "APIs", which are structured interfaces for providing data. In the case that a website has an API, there is probably no need to scrape.
+
+Wikipedia, for example, has an API that can provide page text, history, users, or elements. You can interact with this API through R with the [WikipediR package](https://cran.r-project.org/web/packages/WikipediR/index.html)
+
+Before scraping, check to see if there is an available R package on CRAN for the website! APIs are easier!
+
+***
+
+## HTML
+
+HTML stands for **H**yper **T**ext **M**arkup **L**anguage. This language provides information surrounding the structure of a webpage. 
+
+### Tags
+
+The structure of a website is represented by **elements**. In HTML, elements are designated by **tags**. 
+
+`<tagname> Text or object goes here. </tagname>`
+
+**Examples**
+
+`<h1> is the tag that symbolizes the first level heading element. To end the tag, it is followed with </h1>`
+
+`<h1> My heading </h1>`  
+`<p> My paragraph </p>`
+
+### Element Hierarchy 
+
+![](https://www.w3schools.com/js/pic_htmltree.gif)
+
+## Selecting with XPATH and CSS (Ya gotta know the path to do the math).
+
+There are basically two ways of selecting the content you want out of HTML tags: XPATH and CSS. Both can be used to refer code to specific parts of the HTML.
+
+## XPATH
+
+XPATH works much like a directory. By examining the hierarchy of the HTML you can identify the 'lineage' of the element you want. For example, in the grapahic above, the XPATH for the text element in the bottom right would be
+
+**"/html/body/h1/text"**
+
+## CSS
+
+
+**C**ascading **S**tyle **S**heets
+
+CSS helps to describe the style of an HTML document, or how **elements** should be displayed. 
+
+CSS can be used in combination with HTML elements, for example:
+
+`h1  {color: blue;}`
+
+### id attribute
+
+The **id** attribute can specify a specific style for a specified element, e.g. 
+
+`<h1 id="h01"> Blue Heading </h1>
+h01 {  color: blue;
+}`
+
+is the same as `h1 {color: blue;}`
+
+### class attribute
+
+To define a style for a specific group of elements, the **class** attribute is used. 
+
+`<h1 id="h01">Blue Heading</h1>`
+
+`h01 {
+  color: blue;
+}`
+
+## Selector Gadget
+Now that we fully understand the structure of HTML, we can use that understanding to select the information we want from a website. We might want to scrape the information of headers into one column, and paragraph text into another. For some web pages, the HTML structures may be as simple as elements `<h1>` and `<p>`, however with more complex websites, there could be multiple classes that also encompass a heading or paragraph. 
+
+Luckily, we have a nice gadget that can help us select just the information that we want. [SelectorGadget](https://selectorgadget.com/) is a point and click tool that can show us the CSS selector for the page element that you want information from. It even has a Chrome extension. We will demonstrate how you will use selector gadget in an example
+
+
+***
+
+
+## Introduction to the rvest package
+
+## rvest
+
+`rvest` is a package in R that includes a number of functions that allow for easy scraping of data from html web-pages. 
+
+Similiarly to other packages we've worked with in the tidyverse like `dplyr`, revest also uses pipes `%>%`. 
+Say I want to plot the downfall of the GoT ratings. I locate a page on iMDB that includes all the ratings of season 1. Here's the url to that website: https://www.imdb.com/title/tt0944947/episodes?season=1. We will use various rvest functions to scrape, or "harvest" that rating information. 
+
+### read_html
+
+`read_html()` is a function that will allow us to import the information from the html page source. 
+
+```{r}
+thrones_html <- read_html("https://www.imdb.com/title/tt0944947/episodes?season=1")
+print(thrones_html)
+```
+
+When we look under hood, we see a bunch of different code, mostly various html and css formatting elements with the text or information displayed on the website. However, trying to parse through that information to find what element specifies the information we are looking for could feel a little bit like digging through the weeds of the web. 
+
+### html_nodes
+
+But we aren't weed diggers, we're harvesters! rvest gives us a nice tool called `html_nodes()` that can help us to find the element we want. To pair with this harvesting tool, we can use selector gadget to make sure we only "harvest" the information we want. 
+
+Using selector gadget, we found that the rating for the shows was contained within an hierarchy of elements called ".ipl-rating-star.small .ipl-rating-star__rating". 
+
+`html_nodes()` will take information from an html file and identify all of the places where these elements exist. We will pipe in our variable containing all of the html information from the webpage, and extract pieces surrounding by the selectors we've identified. 
+```{r}
+thrones_nodes <- thrones_html %>% html_nodes(".ipl-rating-star.small .ipl-rating-star__rating")
+print(thrones_nodes)
+```
+
+### html_text
+Oh look, there are the ratings to the 10 episodes of season 1! Those selectors were helpful for finding the ratings, but now we just want to extract the raw numbers. Just like you might want to peel vegetables after a harvest, html_text will peel off those selectors, and leave us with a character vector of whatever is contained within the selectors. 
+
+```{r}
+thrones_ratings <- thrones_nodes %>% html_text() %>% as.data.frame("rating")
+print(thrones_ratings)
+
+```
+
+
+When used in conjunction, these three functions create a powerful tool for parsing through web information. 
+```{r}
+thrones_ratings <- read_html("https://www.imdb.com/title/tt0944947/episodes?season=1") %>% 
+  html_nodes(".ipl-rating-star.small .ipl-rating-star__rating") %>% 
+  html_text()
+```
+
+Now, I'll do the same for the latest season, and plot it against season 1 to see how the ratings compare. 
+```{r}
+thrones_ratings1 <- read_html("https://www.imdb.com/title/tt0944947/episodes?season=1") %>% 
+  html_nodes(".ipl-rating-star.small .ipl-rating-star__rating") %>% 
+  html_text() 
+
+episode1 <- read_html("https://www.imdb.com/title/tt0944947/episodes?season=1") %>% 
+  html_nodes(".zero-z-index div") %>% 
+  html_text()
+
+ratings1 <- cbind(episode = episode1, rating = thrones_ratings1) %>% as.data.frame() 
+
+thrones_ratings8 <- read_html("https://www.imdb.com/title/tt0944947/episodes?season=8") %>% 
+  html_nodes(".ipl-rating-star.small .ipl-rating-star__rating") %>% 
+  html_text() 
+
+episode8 <- read_html("https://www.imdb.com/title/tt0944947/episodes?season=8") %>% 
+  html_nodes(".zero-z-index div") %>% 
+  html_text()
+
+ratings8 <- cbind(episode = episode8, rating = thrones_ratings8) %>% as.data.frame() 
+
+ratings <- rbind(ratings1, ratings8) %>% separate (episode, (c("season", "episode")), sep = ",") %>% 
+  mutate(episode = as.numeric(str_remove(episode, "Ep")), season = str_replace(season, "S", "Season "), rating = as.numeric(as.character(rating)))
+
+ggplot(ratings, aes(episode, rating)) +
+       geom_point(aes(color = season)) +
+        geom_line(aes(color = season)) + 
+        scale_x_continuous(breaks = c(1:10)) +
+        ggtitle("Game of Thrones episode ratings") +
+        ylab("iMDB rating") + 
+        xlab("Episode Number")
+```
+
+
+### html_table
+Okay, so know I want to know which actors were in the episodes, and who they played. Maybe I'm doing some larger analysis tracking how many episodes on average it takes a character to die off. To do this, we can use `html_table` instead of html_text, which will input a table into a dataframe. 
+
+```{r}
+actors <- read_html("https://www.imdb.com/title/tt1480055/?ref_=ttep_ep1") %>%
+html_nodes("table.cast_list") %>% 
+  html_table()
+print(actors)
+
+```
+
+That doesn't look the best, but that's okay, we can use dplyr and stringr tools before creating a larger pipeline. You can reference the imbd ratings example above to see what that data manipulation might look like with those tools.  
+
+## Belief in extraterrestrials (2007 Baylor Religion Survey)
+```{r, echo=FALSE}
+Btext <- read_html("http://www.thearda.com/quickstats/qs_61_p.asp") %>%
+  html_nodes(css = ".annotation") %>%
+  html_text()
+print("Scraped from http://www.thearda.com/quickstats/qs_61_p.asp")
+print(Btext)
+```
+
+**By scraping the data from this survey, we can make observations about the demographics that know the _truth_ about extraterrestrials.**
+
+```{r}
+
+#read in all table elements from the page as one list
+et_data <- read_html("http://www.thearda.com/quickstats/qs_61_p.asp") %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+
+#organize returned list into individual tables
+belief_by_age <- et_data[[3]]
+belief_by_worship_att <- et_data[[4]]
+belief_by_edu <- et_data[[5]]
+belief_by_pol_party <- et_data[[6]]
+belief_by_gender <- et_data[[7]]
+belief_by_religion <- et_data[[8]]
+
+#working with educational demographic information
+#cleaning data a bit so that only the percentages are included (for graphing)
+belief_by_edu_clean <- belief_by_edu
+belief_by_edu_clean$'Less than high school' <- belief_by_edu$'Less than high school' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_edu_clean$'High school graduate' <- belief_by_edu$'High school graduate' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_edu_clean$'Some college or vocational training' <- belief_by_edu$'Some college or vocational training' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_edu_clean$'College graduate' <- belief_by_edu$'College graduate' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_edu_clean$'Postgraduate work/degree' <- belief_by_edu$'Postgraduate work/degree' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_edu_clean$'TOTAL' <- belief_by_edu$'TOTAL' %>%
+  sub(pattern = "%.+", replacement = "")
+
+#cleaning age data
+belief_by_age_clean <- belief_by_age
+belief_by_age_clean$'18-29 years old' <- belief_by_age$'18-29 years old' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_age_clean$'30-44 years old' <- belief_by_age$'30-44 years old' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_age_clean$'45-59 years old' <- belief_by_age$'45-59 years old' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_age_clean$'60-74 years old' <- belief_by_age$'60-74 years old' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_age_clean$'75 years and older' <- belief_by_age$'75 years and older' %>%
+  sub(pattern = "%.+", replacement = "")
+belief_by_age_clean$'TOTAL' <- belief_by_age$'TOTAL' %>%
+  sub(pattern = "%.+", replacement = "")
+
+#put into tidy data format and plot
+belief_by_edu_clean[1:4,1:6] %>%
+  gather(value = "Percentage", key = "Education") %>%
+  mutate(Answer = rep(c("Absolutely not", "Probably not", "Probably", "Absolutely"), 6)) %>%
+  filter(Education != "") %>%
+  ggplot(aes(x = factor(Education, levels = c('Less than high school','High school graduate','Some college or vocational training','College graduate','Postgraduate work/degree')), y = as.numeric(Percentage), group = Answer, color = Answer)) + geom_line() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ggtitle("Percentage of intensities of belief in aliens per education level") + ylab("Percentage") + xlab("Education level")
+
+belief_by_age_clean[1:4,1:6] %>%
+  gather(value = "Percentage", key = "Age") %>%
+  mutate(Answer = rep(c("Absolutely not", "Probably not", "Probably", "Absolutely"), 6)) %>%
+  filter(Age != "") %>%
+  ggplot(aes(x = factor(Age), y = as.numeric(Percentage), group = Answer, color = Answer)) + geom_line() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ggtitle("Percentage of intensities of belief in aliens per age level") + ylab("Percentage") + xlab("Age level")
+
+```
+
+
+## Minihacks
+
+Do it yourself now!
+
+### Minihack 1: Bigfoot data
+
+The website given by the url https://www.bfro.net/GDB/ contains data on quantity of Bigfoot sightings as well as most recent sighting date per US state. Scrape this dataset from the site and arrange the data in terms of most sightings. Where is the hottest Bigfoot locale?
+
+Do the same thing for Oregon (http://www.bfro.net/GDB/state_listing.asp?state=or). What's the squatchiest stretch around here?
+
+```{r}
+library(janitor)
+library(usmap)
+
+#read table to list
+bf_data <- read_html("https://www.bfro.net/GDB/") %>%
+  html_nodes(".countytbl") %>%
+  html_table(fill = TRUE)
+
+# parse state lists into single data frame
+bf_df1 <- as.data.frame(bf_data[[1]])
+bf_df2 <- as.data.frame(bf_data[[2]])
+bf_df <- rbind(bf_df1, bf_df2)
+
+# rename columns, coerce classes, and filter data frame
+colnames(bf_df) <- bf_df[1,]
+bf_df <- clean_names(bf_df)
+
+bf_df$number_of_listings <- as.numeric(bf_df$number_of_listings)
+
+bf_df <- bf_df %>% 
+  filter(state != "State") %>% 
+  arrange(desc(number_of_listings))
+
+
+# plot arrangment 
+ggplot(bf_df, aes(reorder(bf_df$state, bf_df$number_of_listings), number_of_listings)) + 
+  geom_bar(stat = 'identity', fill = 'steelblue4') + 
+  coord_flip() +
+  theme_minimal()  +
+  geom_hline(yintercept = 0) +
+  labs(x=NULL, y = "number of listings", title = "Where is Bigfoot?")
+
+# make it a map!
+plot_usmap(data = bf_df, values = "number_of_listings", lines = "gray50") +
+  scale_fill_viridis_c(name = "Bigfoot listings", option = 'inferno') + 
+  theme(legend.position = "right") +
+  ggtitle("Where is Bigfoot?")
+
+```
+
+```{r}
+# Oregon maps
+#read table to list
+bf_or_data<- read_html("https://www.bfro.net/GDB/state_listing.asp?state=or") %>%
+  html_nodes(".countytbl") %>%
+  html_table(fill = TRUE)
+
+# parse state lists into single data frame
+bf_or1 <- as.data.frame(bf_or_data[[1]])
+bf_or2 <- as.data.frame(bf_or_data[[2]])
+bf_or <- rbind(bf_or1, bf_or2)
+
+# rename columns, coerce classes, and filter data frame
+colnames(bf_or) <- bf_or[1,]
+bf_or <- clean_names(bf_or)
+
+bf_or$number_of_listings <- as.numeric(bf_or$number_of_listings)
+bf_or$number_of_listings <- ifelse(is.na(bf_or$number_of_listings) == TRUE, 0, bf_or$number_of_listings)
+
+bf_or <- bf_or %>% 
+  filter(county != "County") %>% 
+  arrange(desc(number_of_listings))
+
+# plot arrangement
+ggplot(bf_or, aes(reorder(bf_or$county, bf_or$number_of_listings), number_of_listings)) + 
+  geom_bar(stat = 'identity', fill = 'forestgreen') + 
+  coord_flip() +
+  theme_minimal()  +
+  geom_hline(yintercept = 0) +
+  labs(x=NULL, y = "number of listings", title = "Where is Bigfoot in Oregon?")
+
+# plot map - create custom data frame for mapping county information
+or_count <- usmap::us_map(regions = "counties", include = "OR")
+bf_or_count <- bf_or
+bf_or_count$county <- str_c(bf_or_count$county, " County" )
+or_plot_df <- left_join(or_count, bf_or_count)
+
+# plot OR county data
+ggplot(or_plot_df, aes(long, lat, group=county, fill=number_of_listings)) + 
+  geom_polygon() +
+  scale_fill_viridis_c(name = "Bigfoot listings",option = "inferno") +
+  theme_void() +
+  theme(legend.position = "right") +
+  ggtitle("Where is Bigfoot in Oregon?")
+
+
+```
+
+### Minihack 2: iMDB take 2
+
+Now it's your turn to have fun with iMDB data. Using the `read_html() %>% html_nodes %>% html_text` pipeline (or subbing `html_table` if appropriate), create a visualization or graph from an iMDB page. Some ideas include:
+
+* Making a word cloud from episode description information  
+* Scraping season ratings and plotting them against each other  
+* Creating a visualization about current box office numbers (https://www.imdb.com/chart/boxoffice)  
+* Creating a visualization using information about upcoming releases on netflix (https://www.imdb.com/streaming/new-on-netflix/ls021670274/) 
+
+I'm going to be plotting Breaking Bad IMDB ratings (compare to GoT above).
+```{r}
+# Scrape 'Breaking Bad' episode rating informaiton in a loop
+bb_df <- data.frame()
+for(i in 1:5){
+  path <- paste0("https://www.imdb.com/title/tt0903747/episodes?season=", i)
+ 
+  bb_html <- read_html(path) %>% 
+  html_nodes(".ipl-rating-star.small .ipl-rating-star__rating") %>% 
+  html_text()
+  
+  sea <- rep(i, length(bb_html))
+  ep <- 1:length(bb_html)
+  temp_df <- data.frame(rating = bb_html, season = sea, episode = ep)
+  bb_df <- rbind(bb_df, temp_df)
+  
+}
+```
+
+Looks like Breaking bad only got better over time.
+```{r}
+# plot 'Breaking Bad' IMDB ratings
+# Create index variable
+bb_df <- bb_df %>% 
+  unite(index, c(season, episode), sep="_E", remove = FALSE) %>% 
+  arrange(season, episode)
+
+# rearrange factor order for correct episode order
+bb_df$index <- str_c("S", bb_df$index)
+bb_df$index <- factor(bb_df$index, levels = bb_df$index,)
+
+# plot 
+ggplot(bb_df, aes(index ,rating, color= as.factor(season), group=as.factor(season))) + 
+  geom_line(size = 1.5) +
+  scale_color_brewer(palette = 'Dark2',name = "Season")+ 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90), legend.position = "bottom") +
+  labs(x = "Season/Episode Index", title = "Breaking Bad IMDB Ratings")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
