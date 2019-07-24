@@ -44,9 +44,6 @@ plot_gg(p, width = 4, raytrace = FALSE, preview = TRUE)
 plot_gg(p2, width = 3, multicore = TRUE, windowsize = c(800, 800), 
         zoom = 0.65, phi = 35, theta = 30, sunangle = 225, soliddepth = -100)
 
-render_snapshot(clear = TRUE)
-
-
-
-
+#render_snapshot(clear = TRUE)
+render_depth(focus = 0.68, focallength = 200)
 
