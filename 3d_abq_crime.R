@@ -1,5 +1,4 @@
 require(jsonlite)
-require(plyr)
 library(rayshader)
 library(ggmap)
 
@@ -15,7 +14,6 @@ names(locsabq)
 
 #define data frame
 df <- locsabq$geometry
-
 
 # define map (after getting a Google API key   ) 
 ABQ <- get_map(c(-106.59,35.110833),12, source='google',maptype="hybrid")
@@ -44,6 +42,4 @@ plot_gg(p, width = 4, raytrace = FALSE, preview = TRUE)
 plot_gg(p2, width = 3, multicore = TRUE, windowsize = c(800, 800), 
         zoom = 0.65, phi = 35, theta = 30, sunangle = 225, soliddepth = -100)
 
-#render_snapshot(clear = TRUE)
-render_depth(focus = 0.68, focallength = 200)
-
+render_snapshot(clear = TRUE)
